@@ -1,0 +1,21 @@
+{
+  "name": "keiei-shihyo-app",
+  "version": "0.1.0",
+  "description": "経営指標診断ツール - 中小企業の決算データを業種平均と比較診断するWebアプリ",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  },
+  "license": "UNLICENSED"
+}

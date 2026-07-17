@@ -1,77 +1,12 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>経営指標診断ツール（プロトタイプ）</title>
-<link rel="stylesheet" href="css/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-</head>
-<body>
-<div class="wrap">
-
-  <header>
-    <h1>経営指標診断ツール（プロトタイプ）</h1>
-    <p class="lead">決算データ（CSV）をアップロードすると、主要な経営指標を自動計算し、中小企業庁の統計データと比較して診断します。</p>
-  </header>
-
-  <div class="card">
-    <h2>1. データの読み込み</h2>
-    <div class="row">
-      <div>
-        <label for="industrySelect">業種を選択</label>
-        <select id="industrySelect"></select>
-      </div>
-      <div>
-        <label for="csvFile">決算データ（CSV）をアップロード</label>
-        <input type="file" id="csvFile" accept=".csv">
-      </div>
-      <div class="top-actions">
-        <button class="secondary" id="loadSampleBtn" type="button">サンプルデータを読み込む</button>
-        <button class="secondary" id="downloadTemplateBtn" type="button">CSVテンプレートをダウンロード</button>
-      </div>
-    </div>
-    <p class="hint">CSVの列（1行目がヘッダー、1年度=1行、複数年度で推移を表示）：年度, 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額　※金額の単位は「円」です。付加価値額が分からない場合は 0 のままで構いません（労働生産性の診断のみスキップされます）。</p>
-  </div>
-
-  <div id="resultsArea" style="display:none;">
-
-    <div class="card">
-      <h2>2. 算出した経営指標（年度推移）</h2>
-      <div style="overflow-x:auto;">
-        <table id="indicatorTable"></table>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>3. 推移グラフ</h2>
-      <div class="charts">
-        <div class="chart-box"><h3>自己資本比率・売上高経常利益率（%）</h3><canvas id="trendChart" height="200"></canvas></div>
-        <div class="chart-box"><h3>最新年度 vs 業種平均（%指標）</h3><canvas id="benchChart" height="200"></canvas></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>4. 診断結果（最新年度）</h2>
-      <div id="diagList"></div>
-    </div>
-
-  </div>
-
-  <div id="emptyState" class="card">
-    <div class="empty">まだデータが読み込まれていません。サンプルデータを読み込むか、CSVをアップロードしてください。</div>
-  </div>
-
-  <footer>
-    出典：中小企業庁「令和４年中小企業実態基本調査速報（令和３年度決算実績）」<br>
-    自己資本比率・売上高経常利益率（全産業平均）・総資本回転率・ROE・付加価値比率は同調査の公表値をそのまま使用。<br>
-    業種別の売上高経常利益率・労働生産性は、同調査で公表された「産業大分類別の１企業当たり売上高・経常利益・従業者数・付加価値額」から本ツールが算出した参考値です（公式の業種別比率そのものではありません）。<br>
-    流動比率の目安（100%未満＝要注意、150%以上＝良好）は一般的な財務分析上の目安であり、業種により適正水準は異なります。<br>
-    本ツールは簡易診断を目的としたプロトタイプであり、経営判断は必ず決算書原本・専門家の助言と合わせて行ってください。
-  </footer>
-
-</div>
-
-<script src="js/script.js"></script>
+<head><meta charset="UTF-8"><title>移動しました</title></head>
+<body style="font-family:sans-serif; padding:40px; line-height:1.8;" id="deprecated-notice-body">
+<h1>このファイルは使われていません</h1>
+<p>アプリはフルスタック構成（サーバー付き）に更新されました。</p>
+<p>使い方: ターミナルでこのフォルダに移動し、<code>npm install</code> → <code>npm start</code> を実行し、
+<code>http://localhost:3000</code> を開いてください。詳しくは <code>README.md</code> を参照してください。</p>
+<p>（新しいフロントエンドは <code>public/index.html</code>、サーバーは <code>server/index.js</code> です。
+このファイル・<code>css/style.css</code>・<code>js/script.js</code> は削除できない環境の都合で残していますが無視して構いません。）</p>
 </body>
 </html>

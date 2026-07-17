@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>経営指標診断ツール</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ===================== 認証画面 ===================== -->
+<div id="authView" class="wrap narrow">
+  <header>
+    <h1>経営指標診断ツール</h1>
+    <p class="lead">決算データを業種平均と比較し、財務状態を診断するツールです。クライアント企業ごとにデータを管理できます。</p>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login">ログイン</button>
+      <button class="tab-btn" data-tab="register">新規登録</button>
+    </div>
+
+    <form id="loginForm" class="tab-panel">
+      <label for="loginEmail">メールアドレス</label>
+      <input type="email" id="loginEmail" required>
+      <label for="loginPassword">パスワード</label>
+      <input type="password" id="loginPassword" required>
+      <button type="submit">ログイン</button>
+      <p class="error" id="loginError"></p>
+    </form>
+
+    <form id="registerForm" class="tab-panel" style="display:none;">
+      <label for="registerEmail">メールアドレス</label>
+      <input type="email" id="registerEmail" required>
+      <label for="registerPassword">パスワード（8文字以上）</label>
+      <input type="password" id="registerPassword" required minlength="8">
+      <button type="submit">アカウント作成</button>
+      <p class="error" id="registerError"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== アプリ本体 ===================== -->
+<div id="appView" class="wrap" style="display:none;">
+
+  <header class="app-header">
+    <div>
+      <h1>経営指標診断ツール</h1>
+      <p class="lead" id="userEmailLabel"></p>
+    </div>
+    <button class="secondary" id="logoutBtn" type="button">ログアウト</button>
+  </header>
+
+  <!-- ---- 会社一覧 ---- -->
+  <div id="companyListView">
+    <div class="card">
+      <h2>クライアント企業を追加</h2>
+      <form id="newCompanyForm" class="row">
+        <div>
+          <label for="newCompanyName">会社名</label>
+          <input type="text" id="newCompanyName" required placeholder="例: 株式会社サンプル商事">
+        </div>
+        <div>
+          <label for="newCompanyIndustry">業種</label>
+          <select id="newCompanyIndustry" required></select>
+        </div>
+        <div>
+          <button type="submit">追加</button>
+        </div>
+      </form>
+      <p class="error" id="newCompanyError"></p>
+    </div>
+
+    <div class="card">
+      <h2>クライアント企業一覧</h2>
+      <div id="companyList" class="company-list"></div>
+      <p class="empty" id="companyListEmpty" style="display:none;">まだ登録されている会社がありません。上のフォームから追加してください。</p>
+    </div>
+  </div>
+
+  <!-- ---- 会社詳細 ---- -->
+  <div id="companyDetailView" style="display:none;">
+    <button class="secondary" id="backToListBtn" type="button">← 会社一覧に戻る</button>
+
+    <div class="card">
+      <h2 id="companyDetailName"></h2>
+      <p class="lead" id="companyDetailIndustry"></p>
+    </div>
+
+    <div class="card">
+      <h2>決算・試算表データの入力</h2>
+      <div class="row">
+        <div>
+          <label for="recordType">区分</label>
+          <select id="recordType">
+            <option value="annual">決算実績（1年分）</option>
+            <option value="monthly">月次試算表（決算前・年換算して簡易診断）</option>
+          </select>
+        </div>
+        <div id="elapsedMonthsField" style="display:none;">
+          <label for="elapsedMonths">経過月数</label>
+          <input type="number" id="elapsedMonths" min="1" max="11" value="6">
+        </div>
+        <div>
+          <label for="periodLabel">年度・期間ラベル</label>
+          <input type="text" id="periodLabel" placeholder="例: 2024年3月期">
+        </div>
+      </div>
+      <div class="row">
+        <div><label for="fSales">売上高(円)</label><input type="number" id="fSales"></div>
+        <div><label for="fProfit">経常利益(円)</label><input type="number" id="fProfit"></div>
+        <div><label for="fAssets">総資産(円)</label><input type="number" id="fAssets"></div>
+        <div><label for="fEquity">純資産(円)</label><input type="number" id="fEquity"></div>
+      </div>
+      <div class="row">
+        <div><label for="fCurrentAssets">流動資産(円)</label><input type="number" id="fCurrentAssets"></div>
+        <div><label for="fCurrentLiabilities">流動負債(円)</label><input type="number" id="fCurrentLiabilities"></div>
+        <div><label for="fEmployees">従業員数(人)</label><input type="number" id="fEmployees"></div>
+        <div><label for="fValueAdded">付加価値額(円・任意)</label><input type="number" id="fValueAdded"></div>
+      </div>
+      <button id="addRecordBtn" type="button">このデータを追加</button>
+      <p class="error" id="addRecordError"></p>
+    </div>
+
+    <div class="card">
+      <h2>CSVで一括インポート</h2>
+      <p class="hint">列: 年度, 経過月数(任意・決算前のみ), 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額（円単位）</p>
+      <div class="row">
+        <input type="file" id="csvFile" accept=".csv">
+        <button class="secondary" id="loadSampleAnnualBtn" type="button">年次サンプルを読込</button>
+        <button class="secondary" id="loadSampleMonthlyBtn" type="button">月次試算表サンプルを読込</button>
+      </div>
+      <p class="error" id="importError"></p>
+    </div>
+
+    <div class="card">
+      <h2>入力済みデータ</h2>
+      <div style="overflow-x:auto;"><table id="recordsTable"></table></div>
+      <p class="empty" id="recordsEmpty">まだデータがありません。上のフォームまたはCSVで追加してください。</p>
+    </div>
+
+    <div id="diagnosisArea" style="display:none;">
+      <div class="card">
+        <h2>指標の推移</h2>
+        <div class="charts">
+          <div class="chart-box"><h3>自己資本比率・売上高経常利益率（%）</h3><canvas id="trendChart" height="200"></canvas></div>
+          <div class="chart-box"><h3>最新データ vs 業種平均</h3><canvas id="benchChart" height="200"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>診断結果（最新データ）</h2>
+        <div id="diagList"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    出典：中小企業庁「令和４年中小企業実態基本調査速報（令和３年度決算実績）」ほか（詳細は README.md 参照）。<br>
+    本ツールは簡易診断を目的としたプロトタイプです。実際の経営判断は決算書原本・専門家の助言と合わせて行ってください。
+  </footer>
+
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

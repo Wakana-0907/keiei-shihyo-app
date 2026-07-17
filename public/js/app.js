@@ -304,7 +304,8 @@ function escapeHtml(s) {
 }
 
 function renderDiagnosis() {
-  const { series, diagnosis } = state.diagnosis;
+  const { series, diagnosis, summary } = state.diagnosis;
+  document.getElementById('summaryText').textContent = summary || '';
   const labels = series.map(s => s.periodLabel + (s.indicators.annualized ? '(年換算)' : ''));
 
   if (trendChartObj) trendChartObj.destroy();

@@ -78,3 +78,20 @@ test('diagnoseCompany: 業種別ベンチマークが正しく参照される', 
   const pm = result.diagnosis.find(d => d.key === 'profitMargin');
   assert.equal(pm.benchValue, 2.77);
 });
+
+test('diagnoseCompany: summary（総評文）が生成される', () => {
+  const records = [{
+    id: 1, periodLabel: '2024年3月期', recordType: 'annual', elapsedMonths: null,
+    sales: 171000000, ordinaryProfit: 4800000, totalAssets: 108000000, equity: 38000000,
+    currentAssets: 53000000, currentLiabilities: 44000000, employees: 13, valueAdded: 45500000
+  }];
+  const result = diagnoseCompany(records, '小売業');
+  assert.equal(typeof result.summary, 'string');
+  assert.ok(result.summary.length > 20);
+  assert.ok(result.summary.includes('小売業'));
+});
+
+test('diagnoseCompany: データ不足時のsummaryはフォールバック文言', () => {
+  const result = diagnoseCompany([], '小売業');
+  assert.ok(result.summary.includes('総評を生成できません'));
+});

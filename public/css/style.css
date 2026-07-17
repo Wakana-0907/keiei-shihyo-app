@@ -88,4 +88,5 @@ form label{margin-top:4px;}
   background:none; border:none; color:var(--bad); font-size:12px; cursor:pointer; padding:4px 8px;
 }
 #companyDetailView > .secondary{margin-bottom:14px;}
-.pill{display:inline-block; font-size:11px; padding:2px 8px; border-radius:12px; background:var(--accent-light); color:var(--accent); margin-left:8px;}
+.pill{display:inline-block; font-size:11px; padding:2px 8px; border-radius:12px; background:var(--accent-light); color:var(--accent); margin-left:8px; vertical-align:middle;}
+.summary-text{font-size:13.5px; line-height:1.9; margin:0;}

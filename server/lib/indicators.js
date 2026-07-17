@@ -1,4 +1,5 @@
 const { ALL_INDUSTRY_AVG, INDUSTRY_BENCH, CURRENT_RATIO_GOOD, CURRENT_RATIO_BAD } = require('./benchmarks');
+const { generateCommentary } = require('./commentary');
 
 /**
  * 月次試算表データを年換算する。
@@ -110,10 +111,14 @@ function diagnoseCompany(records, industry) {
     }
   }
 
+  const seriesOut = series.map(s => ({ recordId: s.record.id, periodLabel: s.record.periodLabel, recordType: s.record.recordType, indicators: s.indicators }));
+  const summary = generateCommentary(items, seriesOut, industry);
+
   return {
     industry,
-    series: series.map(s => ({ recordId: s.record.id, periodLabel: s.record.periodLabel, recordType: s.record.recordType, indicators: s.indicators })),
-    diagnosis: items
+    series: seriesOut,
+    diagnosis: items,
+    summary
   };
 }
 

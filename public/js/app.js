@@ -132,6 +132,14 @@ async function init() {
   });
   document.getElementById('compareSortKey').addEventListener('change', () => renderCompareTable());
 
+  document.getElementById('detailNav').addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-target]');
+    if (!link) return;
+    e.preventDefault();
+    const target = document.getElementById(link.dataset.target);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   try {
     state.user = await api('/auth/me');
     await afterLogin();
@@ -259,11 +267,42 @@ async function refreshCompanyData() {
     state.diagnosis = await api(`/companies/${id}/diagnosis`);
     renderDiagnosis();
     document.getElementById('diagnosisArea').style.display = 'block';
+    document.getElementById('detailNavDiagGroup').style.display = 'flex';
     await loadActions();
   } else {
     state.diagnosis = null;
     document.getElementById('diagnosisArea').style.display = 'none';
+    document.getElementById('detailNavDiagGroup').style.display = 'none';
   }
+  setupDetailScrollSpy();
+}
+
+let detailScrollObserver = null;
+
+function setupDetailScrollSpy() {
+  if (detailScrollObserver) {
+    detailScrollObserver.disconnect();
+    detailScrollObserver = null;
+  }
+  const navLinks = Array.from(document.querySelectorAll('#detailNav a[data-target]'));
+  const setActive = (id) => {
+    navLinks.forEach(a => a.classList.toggle('active', a.dataset.target === id));
+  };
+  const visibleSections = navLinks
+    .map(a => document.getElementById(a.dataset.target))
+    .filter(el => el && el.offsetParent !== null); // 表示中(display:noneでない)セクションだけ対象
+  if (visibleSections.length === 0) return;
+
+  detailScrollObserver = new IntersectionObserver((entries) => {
+    const visible = entries.filter(en => en.isIntersecting);
+    if (visible.length === 0) return;
+    // 画面上部に最も近い(intersectionRatioが高い、もしくはtopが最小の)ものをアクティブにする
+    visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+    setActive(visible[0].target.id);
+  }, { rootMargin: '-10% 0px -70% 0px', threshold: [0, 1] });
+
+  visibleSections.forEach(el => detailScrollObserver.observe(el));
+  setActive(visibleSections[0].id);
 }
 
 function renderRecordsTable() {
@@ -389,19 +428,24 @@ function renderDiagnosis() {
   qList.innerHTML = (nextMeetingQuestions || []).map(q => `<li>${escapeHtml(q)}</li>`).join('');
 
   // ---- 事業承継レディネス ----
-  const successionCard = document.getElementById('successionCard');
+  const successionCard = document.getElementById('sectionSuccession');
+  const navSuccession = document.getElementById('navSuccession');
   if (succession && succession.summary) {
     successionCard.style.display = 'block';
+    navSuccession.style.display = 'block';
     document.getElementById('successionText').textContent = succession.summary;
   } else {
     successionCard.style.display = 'none';
+    navSuccession.style.display = 'none';
   }
 
   // ---- クライアント内順位 ----
-  const rankCard = document.getElementById('portfolioRankCard');
+  const rankCard = document.getElementById('sectionRank');
+  const navRank = document.getElementById('navRank');
   const rankList = document.getElementById('portfolioRankList');
   if (portfolioRank && Object.keys(portfolioRank).length > 0) {
     rankCard.style.display = 'block';
+    navRank.style.display = 'block';
     rankList.innerHTML = Object.entries(portfolioRank).map(([key, r]) => `
       <div class="rank-row">
         <div>${RANK_METRIC_LABELS[key] || key}</div>
@@ -411,6 +455,7 @@ function renderDiagnosis() {
     `).join('');
   } else {
     rankCard.style.display = 'none';
+    navRank.style.display = 'none';
   }
   const latestLabel = series.length ? series[series.length - 1].periodLabel : '';
   const today = new Date().toLocaleDateString('ja-JP');

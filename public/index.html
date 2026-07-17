@@ -45,7 +45,7 @@
 <!-- ===================== アプリ本体 ===================== -->
 <div id="appView" class="wrap" style="display:none;">
 
-  <header class="app-header">
+  <header class="app-header no-print">
     <div>
       <h1>経営指標診断ツール</h1>
       <p class="lead" id="userEmailLabel"></p>
@@ -74,22 +74,50 @@
     </div>
 
     <div class="card">
-      <h2>クライアント企業一覧</h2>
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h2 style="margin:0; padding:0; border:none;">クライアント企業一覧</h2>
+        <button class="secondary" id="showCompareBtn" type="button">複数社を比較する</button>
+      </div>
       <div id="companyList" class="company-list"></div>
       <p class="empty" id="companyListEmpty" style="display:none;">まだ登録されている会社がありません。上のフォームから追加してください。</p>
+    </div>
+
+    <div class="card" id="compareCard" style="display:none;">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h2 style="margin:0; padding:0; border:none;">比較・ランキング</h2>
+        <div>
+          <label for="compareSortKey">並び替え</label>
+          <select id="compareSortKey">
+            <option value="equityRatio">自己資本比率</option>
+            <option value="profitMargin">売上高経常利益率</option>
+            <option value="turnover">総資本回転率</option>
+            <option value="roe">ROE</option>
+            <option value="currentRatio">流動比率</option>
+            <option value="productivity">労働生産性</option>
+            <option value="goodScore">総合評価（良好の数）</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto;"><table id="compareTable"></table></div>
+      <p class="empty" id="compareEmpty" style="display:none;">比較できるデータがまだありません。各社にデータを入力してください。</p>
     </div>
   </div>
 
   <!-- ---- 会社詳細 ---- -->
   <div id="companyDetailView" style="display:none;">
-    <button class="secondary" id="backToListBtn" type="button">← 会社一覧に戻る</button>
+    <button class="secondary no-print" id="backToListBtn" type="button">← 会社一覧に戻る</button>
 
-    <div class="card">
+    <div class="card no-print">
       <h2 id="companyDetailName"></h2>
       <p class="lead" id="companyDetailIndustry"></p>
     </div>
 
-    <div class="card">
+    <div id="printHeader" class="print-only">
+      <h1 id="printCompanyName"></h1>
+      <p id="printMeta"></p>
+    </div>
+
+    <div class="card no-print">
       <h2>決算・試算表データの入力</h2>
       <div class="row">
         <div>
@@ -120,13 +148,18 @@
         <div><label for="fEmployees">従業員数(人)</label><input type="number" id="fEmployees"></div>
         <div><label for="fValueAdded">付加価値額(円・任意)</label><input type="number" id="fValueAdded"></div>
       </div>
+      <div class="row">
+        <div><label for="fInterestDebt">有利子負債(円・任意)</label><input type="number" id="fInterestDebt"></div>
+        <div><label for="fDepreciation">減価償却費(円・任意)</label><input type="number" id="fDepreciation"></div>
+      </div>
+      <p class="hint">有利子負債を入力すると、銀行融資審査目線の指標（債務償還年数・借入金月商倍率）も診断に追加されます。</p>
       <button id="addRecordBtn" type="button">このデータを追加</button>
       <p class="error" id="addRecordError"></p>
     </div>
 
-    <div class="card">
+    <div class="card no-print">
       <h2>CSVで一括インポート</h2>
-      <p class="hint">列: 年度, 経過月数(任意・決算前のみ), 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額（円単位）</p>
+      <p class="hint">列: 年度, 経過月数(任意・決算前のみ), 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額, 有利子負債(任意), 減価償却費(任意)（金額はすべて円単位）</p>
       <div class="row">
         <input type="file" id="csvFile" accept=".csv">
         <button class="secondary" id="loadSampleAnnualBtn" type="button">年次サンプルを読込</button>
@@ -135,13 +168,20 @@
       <p class="error" id="importError"></p>
     </div>
 
-    <div class="card">
+    <div class="card no-print">
       <h2>入力済みデータ</h2>
       <div style="overflow-x:auto;"><table id="recordsTable"></table></div>
       <p class="empty" id="recordsEmpty">まだデータがありません。上のフォームまたはCSVで追加してください。</p>
     </div>
 
     <div id="diagnosisArea" style="display:none;">
+      <div class="card no-print">
+        <button id="printReportBtn" type="button">レポートを印刷 / PDFとして保存</button>
+      </div>
+      <div class="card">
+        <h2>総評<span class="pill">自動生成</span></h2>
+        <p id="summaryText" class="summary-text"></p>
+      </div>
       <div class="card">
         <h2>指標の推移</h2>
         <div class="charts">

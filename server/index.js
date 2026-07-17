@@ -5,6 +5,7 @@ const session = require('express-session');
 const { router: authRouter } = require('./routes/auth');
 const { router: companiesRouter } = require('./routes/companies');
 const recordsRouter = require('./routes/records');
+const actionsRouter = require('./routes/actions');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,6 +26,7 @@ app.use(session({
 app.use('/api/auth', authRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/companies/:companyId', recordsRouter);
+app.use('/api/companies/:companyId', actionsRouter);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 

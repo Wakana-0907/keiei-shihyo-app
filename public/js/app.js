@@ -9,7 +9,8 @@ const state = {
   selectedCompanyId: null,
   records: [],
   diagnosis: null,
-  compareData: []
+  compareData: [],
+  actions: []
 };
 
 let trendChartObj = null;
@@ -110,6 +111,8 @@ async function init() {
   });
 
   document.getElementById('newCompanyForm').addEventListener('submit', onCreateCompany);
+  document.getElementById('companyMetaForm').addEventListener('submit', onUpdateCompanyMeta);
+  document.getElementById('newActionForm').addEventListener('submit', onAddAction);
   document.getElementById('backToListBtn').addEventListener('click', showCompanyList);
   document.getElementById('recordType').addEventListener('change', (e) => {
     document.getElementById('elapsedMonthsField').style.display = e.target.value === 'monthly' ? 'block' : 'none';
@@ -188,13 +191,48 @@ async function onCreateCompany(e) {
   e.preventDefault();
   const name = document.getElementById('newCompanyName').value.trim();
   const industry = document.getElementById('newCompanyIndustry').value;
+  const ownerAgeVal = document.getElementById('newCompanyOwnerAge').value;
+  const successorStatus = document.getElementById('newCompanySuccessor').value;
   try {
-    await api('/companies', { method: 'POST', body: { name, industry } });
+    await api('/companies', {
+      method: 'POST',
+      body: {
+        name, industry,
+        owner_age: ownerAgeVal ? Number(ownerAgeVal) : null,
+        successor_status: successorStatus || null
+      }
+    });
     document.getElementById('newCompanyName').value = '';
+    document.getElementById('newCompanyOwnerAge').value = '';
+    document.getElementById('newCompanySuccessor').value = '';
     document.getElementById('newCompanyError').textContent = '';
     await loadCompanies();
   } catch (err) {
     document.getElementById('newCompanyError').textContent = err.message;
+  }
+}
+
+async function onUpdateCompanyMeta(e) {
+  e.preventDefault();
+  const ownerAgeVal = document.getElementById('editOwnerAge').value;
+  const successorStatus = document.getElementById('editSuccessorStatus').value;
+  try {
+    await api(`/companies/${state.selectedCompanyId}`, {
+      method: 'PUT',
+      body: {
+        owner_age: ownerAgeVal ? Number(ownerAgeVal) : null,
+        successor_status: successorStatus || null
+      }
+    });
+    await loadCompanies();
+    const updated = state.companies.find(c => c.id === state.selectedCompanyId);
+    if (updated) {
+      document.getElementById('editOwnerAge').value = updated.owner_age ?? '';
+      document.getElementById('editSuccessorStatus').value = updated.successor_status || '';
+    }
+    if (state.records.length > 0) await refreshCompanyData();
+  } catch (err) {
+    alert(err.message);
   }
 }
 
@@ -207,6 +245,8 @@ async function openCompany(id) {
   document.getElementById('companyDetailName').textContent = company.name;
   document.getElementById('companyDetailIndustry').textContent = `業種: ${company.industry}`;
   document.getElementById('printCompanyName').textContent = `${company.name} 経営指標診断レポート`;
+  document.getElementById('editOwnerAge').value = company.owner_age ?? '';
+  document.getElementById('editSuccessorStatus').value = company.successor_status || '';
   showCompanyDetail();
   await refreshCompanyData();
 }
@@ -219,6 +259,7 @@ async function refreshCompanyData() {
     state.diagnosis = await api(`/companies/${id}/diagnosis`);
     renderDiagnosis();
     document.getElementById('diagnosisArea').style.display = 'block';
+    await loadActions();
   } else {
     state.diagnosis = null;
     document.getElementById('diagnosisArea').style.display = 'none';
@@ -317,9 +358,60 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+const RANK_METRIC_LABELS = {
+  equityRatio: '自己資本比率', profitMargin: '売上高経常利益率', turnover: '総資本回転率',
+  roe: 'ROE', currentRatio: '流動比率', productivity: '労働生産性'
+};
+
 function renderDiagnosis() {
-  const { series, diagnosis, summary, industry } = state.diagnosis;
+  const { series, diagnosis, summary, industry, healthScore, nextMeetingQuestions, succession, portfolioRank } = state.diagnosis;
   document.getElementById('summaryText').textContent = summary || '';
+
+  // ---- 経営体力スコア ----
+  const scoreNumEl = document.getElementById('healthScoreNumber');
+  const scoreLabelEl = document.getElementById('healthScoreLabel');
+  const scoreCountEl = document.getElementById('healthScoreCount');
+  if (healthScore && healthScore.score !== null) {
+    scoreNumEl.textContent = healthScore.score;
+    const cls = healthScore.score >= 70 ? 'good' : healthScore.score >= 50 ? 'mid' : 'bad';
+    scoreLabelEl.textContent = healthScore.label;
+    scoreLabelEl.className = 'badge ' + cls;
+    scoreCountEl.textContent = `${healthScore.count}件の診断項目から算出（各項目の判定を得点化した単純平均）`;
+  } else {
+    scoreNumEl.textContent = '—';
+    scoreLabelEl.textContent = '';
+    scoreLabelEl.className = 'badge';
+    scoreCountEl.textContent = '';
+  }
+
+  // ---- 次回訪問時に聞くべき質問 ----
+  const qList = document.getElementById('questionList');
+  qList.innerHTML = (nextMeetingQuestions || []).map(q => `<li>${escapeHtml(q)}</li>`).join('');
+
+  // ---- 事業承継レディネス ----
+  const successionCard = document.getElementById('successionCard');
+  if (succession && succession.summary) {
+    successionCard.style.display = 'block';
+    document.getElementById('successionText').textContent = succession.summary;
+  } else {
+    successionCard.style.display = 'none';
+  }
+
+  // ---- クライアント内順位 ----
+  const rankCard = document.getElementById('portfolioRankCard');
+  const rankList = document.getElementById('portfolioRankList');
+  if (portfolioRank && Object.keys(portfolioRank).length > 0) {
+    rankCard.style.display = 'block';
+    rankList.innerHTML = Object.entries(portfolioRank).map(([key, r]) => `
+      <div class="rank-row">
+        <div>${RANK_METRIC_LABELS[key] || key}</div>
+        <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${r.percentile}%;"></div></div>
+        <div class="rank-percentile">${r.rank}位 / ${r.total}社中</div>
+      </div>
+    `).join('');
+  } else {
+    rankCard.style.display = 'none';
+  }
   const latestLabel = series.length ? series[series.length - 1].periodLabel : '';
   const today = new Date().toLocaleDateString('ja-JP');
   document.getElementById('printMeta').textContent = `業種: ${industry}　最新データ: ${latestLabel}　作成日: ${today}`;
@@ -417,6 +509,7 @@ function renderCompareTable() {
     <tr>
       <th>会社名</th><th>業種</th><th>最新期間</th>
       ${cols.map(([, c]) => `<th>${c.label}</th>`).join('')}
+      <th>経営体力スコア</th>
       <th>総合評価</th>
     </tr>
     ${sorted.map(c => `
@@ -425,6 +518,7 @@ function renderCompareTable() {
         <td>${escapeHtml(c.industry)}</td>
         <td>${escapeHtml(c.latestPeriod)}</td>
         ${cols.map(([key, col]) => `<td>${fmt(c[key], col.digits)}${c[key] !== null ? col.unit : ''}</td>`).join('')}
+        <td>${c.healthScore !== null && c.healthScore !== undefined ? `${c.healthScore}（${c.healthLabel}）` : '—'}</td>
         <td>
           <span class="badge good">${c.goodCount}</span>
           <span class="badge mid">${c.midCount}</span>
@@ -440,6 +534,84 @@ function renderCompareTable() {
       </tr>
     `).join('')}
   `;
+}
+
+// ---------------------------------------------------------------------
+// アクションプラン・進捗トラッキング
+// ---------------------------------------------------------------------
+const ACTION_INDICATOR_LABELS = {
+  equityRatio: '自己資本比率', profitMargin: '売上高経常利益率', turnover: '総資本回転率',
+  roe: 'ROE', currentRatio: '流動比率', valueAddedRatio: '売上高付加価値率',
+  productivity: '労働生産性', debtServiceYears: '債務償還年数', debtMonths: '借入金月商倍率'
+};
+
+async function loadActions() {
+  state.actions = await api(`/companies/${state.selectedCompanyId}/actions`);
+  renderActions();
+}
+
+function renderActions() {
+  const list = document.getElementById('actionList');
+  const empty = document.getElementById('actionListEmpty');
+  const actions = state.actions || [];
+  if (actions.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = actions.map(a => `
+    <div class="action-item ${a.status === 'done' ? 'done' : ''}" data-id="${a.id}">
+      <div>
+        <div class="action-title">${escapeHtml(a.title)}</div>
+        <div class="action-meta">
+          ${a.indicatorKey ? escapeHtml(ACTION_INDICATOR_LABELS[a.indicatorKey] || a.indicatorKey) + '　' : ''}
+          ${a.dueDate ? '期限: ' + escapeHtml(a.dueDate) : ''}
+        </div>
+      </div>
+      <div class="action-buttons no-print">
+        <button class="secondary toggle-btn" type="button" data-id="${a.id}" data-status="${a.status}">
+          ${a.status === 'done' ? '未完了に戻す' : '完了にする'}
+        </button>
+        <button class="delete-btn" type="button" data-id="${a.id}">削除</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newStatus = btn.dataset.status === 'done' ? 'open' : 'done';
+      await api(`/companies/${state.selectedCompanyId}/actions/${btn.dataset.id}`, { method: 'PUT', body: { status: newStatus } });
+      await loadActions();
+    });
+  });
+  list.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('このアクションプランを削除しますか？')) return;
+      await api(`/companies/${state.selectedCompanyId}/actions/${btn.dataset.id}`, { method: 'DELETE' });
+      await loadActions();
+    });
+  });
+}
+
+async function onAddAction(e) {
+  e.preventDefault();
+  const title = document.getElementById('newActionTitle').value.trim();
+  const indicatorKey = document.getElementById('newActionIndicator').value;
+  const dueDate = document.getElementById('newActionDueDate').value;
+  try {
+    await api(`/companies/${state.selectedCompanyId}/actions`, {
+      method: 'POST',
+      body: { title, indicatorKey: indicatorKey || null, dueDate: dueDate || null }
+    });
+    document.getElementById('newActionTitle').value = '';
+    document.getElementById('newActionIndicator').value = '';
+    document.getElementById('newActionDueDate').value = '';
+    document.getElementById('newActionError').textContent = '';
+    await loadActions();
+  } catch (err) {
+    document.getElementById('newActionError').textContent = err.message;
+  }
 }
 
 init();

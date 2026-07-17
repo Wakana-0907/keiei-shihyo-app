@@ -3,6 +3,8 @@ const {
   DEBT_SERVICE_YEARS_GOOD, DEBT_SERVICE_YEARS_BAD, DEBT_MONTHS_GOOD, DEBT_MONTHS_BAD
 } = require('./benchmarks');
 const { generateCommentary } = require('./commentary');
+const { computeHealthScore } = require('./score');
+const { generateQuestions } = require('./questions');
 
 /**
  * 月次試算表データを年換算する。
@@ -155,12 +157,16 @@ function diagnoseCompany(records, industry) {
 
   const seriesOut = series.map(s => ({ recordId: s.record.id, periodLabel: s.record.periodLabel, recordType: s.record.recordType, indicators: s.indicators }));
   const summary = generateCommentary(items, seriesOut, industry);
+  const healthScore = computeHealthScore(items);
+  const nextMeetingQuestions = generateQuestions(items);
 
   return {
     industry,
     series: seriesOut,
     diagnosis: items,
-    summary
+    summary,
+    healthScore,
+    nextMeetingQuestions
   };
 }
 

@@ -3,6 +3,9 @@ const db = require('../db');
 const { requireAuth } = require('./auth');
 const { INDUSTRY_BENCH } = require('../lib/benchmarks');
 const { diagnoseCompany } = require('../lib/indicators');
+const { rankAndPercentile } = require('../lib/ranking');
+
+const RANKING_METRICS = ['equityRatio', 'profitMargin', 'turnover', 'roe', 'currentRatio', 'productivity'];
 
 const router = express.Router();
 router.use(requireAuth);
@@ -56,11 +59,26 @@ router.get('/compare', (req, res) => {
       currentRatio: byKey.currentRatio ? byKey.currentRatio.value : null,
       productivity: byKey.productivity ? byKey.productivity.value : null,
       debtServiceYears: byKey.debtServiceYears ? byKey.debtServiceYears.value : null,
+      healthScore: diagnosis.healthScore ? diagnosis.healthScore.score : null,
+      healthLabel: diagnosis.healthScore ? diagnosis.healthScore.label : null,
       goodCount: scoreCounts.good,
       midCount: scoreCounts.mid,
       badCount: scoreCounts.bad
     };
   });
+
+  // ---- 自社クライアント内でのパーセンタイル順位を各指標に付与 ----
+  const withData = result.filter(c => c.hasData);
+  RANKING_METRICS.concat(['healthScore']).forEach(metric => {
+    const values = withData.map(c => c[metric]).filter(v => v !== null && v !== undefined);
+    if (values.length < 2) return; // 比較対象が1社以下ならランキングは付けない
+    withData.forEach(c => {
+      if (c[metric] === null || c[metric] === undefined) return;
+      c.percentiles = c.percentiles || {};
+      c.percentiles[metric] = rankAndPercentile(values, c[metric]).percentile;
+    });
+  });
+
   res.json(result);
 });
 
@@ -70,15 +88,15 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { name, industry, memo } = req.body || {};
+  const { name, industry, memo, owner_age, successor_status } = req.body || {};
   if (!name || !industry) {
     return res.status(400).json({ error: 'name と industry は必須です。' });
   }
   if (!INDUSTRY_BENCH[industry]) {
     return res.status(400).json({ error: `未対応の業種です: ${industry}` });
   }
-  const info = db.prepare('INSERT INTO companies (user_id, name, industry, memo) VALUES (?, ?, ?, ?)')
-    .run(req.session.userId, name, industry, memo || null);
+  const info = db.prepare('INSERT INTO companies (user_id, name, industry, memo, owner_age, successor_status) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(req.session.userId, name, industry, memo || null, owner_age || null, successor_status || null);
   const company = db.prepare('SELECT * FROM companies WHERE id = ?').get(Number(info.lastInsertRowid));
   res.status(201).json(company);
 });
@@ -92,12 +110,19 @@ router.get('/:id', (req, res) => {
 router.put('/:id', (req, res) => {
   const company = getOwnedCompany(req.params.id, req.session.userId);
   if (!company) return res.status(404).json({ error: '会社が見つかりません。' });
-  const { name, industry, memo } = req.body || {};
+  const { name, industry, memo, owner_age, successor_status } = req.body || {};
   if (industry && !INDUSTRY_BENCH[industry]) {
     return res.status(400).json({ error: `未対応の業種です: ${industry}` });
   }
-  db.prepare('UPDATE companies SET name = ?, industry = ?, memo = ? WHERE id = ?')
-    .run(name || company.name, industry || company.industry, memo !== undefined ? memo : company.memo, company.id);
+  db.prepare('UPDATE companies SET name = ?, industry = ?, memo = ?, owner_age = ?, successor_status = ? WHERE id = ?')
+    .run(
+      name || company.name,
+      industry || company.industry,
+      memo !== undefined ? memo : company.memo,
+      owner_age !== undefined ? owner_age : company.owner_age,
+      successor_status !== undefined ? successor_status : company.successor_status,
+      company.id
+    );
   res.json(db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id));
 });
 

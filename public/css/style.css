@@ -90,3 +90,19 @@ form label{margin-top:4px;}
 #companyDetailView > .secondary{margin-bottom:14px;}
 .pill{display:inline-block; font-size:11px; padding:2px 8px; border-radius:12px; background:var(--accent-light); color:var(--accent); margin-left:8px; vertical-align:middle;}
 .summary-text{font-size:13.5px; line-height:1.9; margin:0;}
+
+/* ---- 印刷 / PDF保存 ---- */
+.print-only{display:none;}
+#printReportBtn{background:var(--accent);}
+
+@media print{
+  body{background:#fff;}
+  .no-print{display:none !important;}
+  .print-only{display:block; margin-bottom:18px;}
+  .print-only h1{font-size:20px; margin:0 0 4px;}
+  .print-only p{color:var(--sub); font-size:12px; margin:0;}
+  .card{border:none; box-shadow:none; padding:0; margin-bottom:16px; break-inside:avoid;}
+  .charts{grid-template-columns:1fr 1fr;}
+  .chart-box{border:1px solid var(--border);}
+  footer{margin-top:30px;}
+}

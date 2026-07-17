@@ -1,0 +1,27 @@
+# Fly.io 用設定ファイル。
+# 使い方: `fly launch`（このファイルが検出される）→ `fly volumes create data --size 1` で
+# 永続ボリュームを作成 → 下記の [mounts] を有効化 → `fly deploy`
+#
+# Fly.ioは小さいボリューム(数GB程度)なら無料枠に収まることが多いですが、
+# 料金体系は変わることがあるので必ず公式サイトの最新情報を確認してください。
+
+app = "keiei-shihyo-app"
+primary_region = "nrt" # 東京リージョン
+
+[build]
+
+[env]
+  PORT = "3000"
+  DB_PATH = "/data/app.sqlite"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+# ボリューム作成後、以下のコメントを外してください
+# [mounts]
+#   source = "data"
+#   destination = "/data"

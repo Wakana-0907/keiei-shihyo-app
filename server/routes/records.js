@@ -23,6 +23,8 @@ function rowToRecord(row) {
     currentLiabilities: row.current_liabilities,
     employees: row.employees,
     valueAdded: row.value_added,
+    interestBearingDebt: row.interest_bearing_debt,
+    depreciation: row.depreciation,
     createdAt: row.created_at
   };
 }
@@ -38,15 +40,17 @@ router.use(requireCompany);
 const insertStmt = db.prepare(`
   INSERT INTO financial_records
     (company_id, period_label, record_type, elapsed_months, sales, ordinary_profit,
-     total_assets, equity, current_assets, current_liabilities, employees, value_added)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     total_assets, equity, current_assets, current_liabilities, employees, value_added,
+     interest_bearing_debt, depreciation)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 function insertRecord(companyId, r) {
   const info = insertStmt.run(
     companyId, r.periodLabel, r.recordType || 'annual', r.elapsedMonths ?? null,
     r.sales, r.ordinaryProfit, r.totalAssets, r.equity, r.currentAssets,
-    r.currentLiabilities, r.employees, r.valueAdded ?? null
+    r.currentLiabilities, r.employees, r.valueAdded ?? null,
+    r.interestBearingDebt ?? null, r.depreciation ?? null
   );
   return Number(info.lastInsertRowid);
 }
@@ -59,6 +63,7 @@ router.get('/records', (req, res) => {
 router.post('/records', (req, res) => {
   const body = req.body || {};
   const required = ['periodLabel', 'sales', 'ordinaryProfit', 'totalAssets', 'equity', 'currentAssets', 'currentLiabilities', 'employees'];
+  // interestBearingDebt / depreciation は任意項目
   const missing = required.filter(k => body[k] === undefined || body[k] === null || body[k] === '');
   if (missing.length > 0) {
     return res.status(400).json({ error: '次の項目が不足しています: ' + missing.join(', ') });
@@ -105,7 +110,9 @@ router.get('/diagnosis', (req, res) => {
     currentAssets: row.current_assets,
     currentLiabilities: row.current_liabilities,
     employees: row.employees,
-    valueAdded: row.value_added
+    valueAdded: row.value_added,
+    interestBearingDebt: row.interest_bearing_debt,
+    depreciation: row.depreciation
   }));
   const result = diagnoseCompany(records, req.company.industry);
   res.json(result);

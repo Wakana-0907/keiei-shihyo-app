@@ -48,4 +48,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_records_company ON financial_records(company_id);
 `);
 
+// ---- 簡易マイグレーション: 既存のDBファイルに新しい列を後から追加する ----
+// (すでにテスト運用しているユーザーのapp.sqliteを壊さないよう、
+//  CREATE TABLE ではなく ALTER TABLE ADD COLUMN で後方互換に追加する)
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  const exists = cols.some(c => c.name === column);
+  if (!exists) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+ensureColumn('financial_records', 'interest_bearing_debt', 'REAL');
+ensureColumn('financial_records', 'depreciation', 'REAL');
+
 module.exports = db;

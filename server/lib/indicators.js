@@ -1,10 +1,13 @@
-const { ALL_INDUSTRY_AVG, INDUSTRY_BENCH, CURRENT_RATIO_GOOD, CURRENT_RATIO_BAD } = require('./benchmarks');
+const {
+  ALL_INDUSTRY_AVG, INDUSTRY_BENCH,
+  DEBT_SERVICE_YEARS_GOOD, DEBT_SERVICE_YEARS_BAD, DEBT_MONTHS_GOOD, DEBT_MONTHS_BAD
+} = require('./benchmarks');
 const { generateCommentary } = require('./commentary');
 
 /**
  * 月次試算表データを年換算する。
- * elapsedMonths が 1〜11 の場合、フロー項目（売上高・経常利益・付加価値額）を
- * 12ヶ月換算する。ストック項目（総資産・純資産・流動資産・流動負債・従業員数）は
+ * elapsedMonths が 1〜11 の場合、フロー項目（売上高・経常利益・付加価値額・減価償却費）を
+ * 12ヶ月換算する。ストック項目（総資産・純資産・流動資産・流動負債・従業員数・有利子負債）は
  * 期末時点の値としてそのまま使う。
  * elapsedMonths が null/0/12以上の場合は決算実績とみなし、そのまま返す。
  */
@@ -17,6 +20,7 @@ function annualize(record) {
     sales: record.sales * factor,
     ordinaryProfit: record.ordinaryProfit * factor,
     valueAdded: record.valueAdded != null ? record.valueAdded * factor : null,
+    depreciation: record.depreciation != null ? record.depreciation * factor : null,
     annualized: isPartialYear
   };
 }
@@ -30,7 +34,26 @@ function computeIndicators(rawRecord) {
   const currentRatio = row.currentLiabilities ? (row.currentAssets / row.currentLiabilities * 100) : null;
   const productivity = (row.employees && row.valueAdded != null) ? (row.valueAdded / row.employees / 10000) : null; // 万円/人
   const valueAddedRatio = (row.sales && row.valueAdded != null) ? (row.valueAdded / row.sales * 100) : null;
-  return { equityRatio, profitMargin, turnover, roe, currentRatio, productivity, valueAddedRatio, annualized: row.annualized };
+
+  // ---- 銀行融資審査目線の指標（有利子負債が入力されている場合のみ計算） ----
+  let debtServiceYears = null;
+  let debtMonths = null;
+  if (row.interestBearingDebt != null && row.interestBearingDebt > 0) {
+    const depreciation = row.depreciation != null ? row.depreciation : 0;
+    const cashFlowProxy = row.ordinaryProfit + depreciation; // 簡易キャッシュフロー
+    if (cashFlowProxy > 0) {
+      debtServiceYears = row.interestBearingDebt / cashFlowProxy;
+    } // マイナスの場合は返済原資がないため計算不能(null)のまま
+    if (row.sales > 0) {
+      debtMonths = row.interestBearingDebt / (row.sales / 12);
+    }
+  }
+
+  return {
+    equityRatio, profitMargin, turnover, roe, currentRatio, productivity, valueAddedRatio,
+    debtServiceYears, debtMonths,
+    annualized: row.annualized
+  };
 }
 
 function judge(value, bench, { thresholdGood = 1.2, thresholdBad = 0.8 } = {}) {
@@ -43,10 +66,11 @@ function judge(value, bench, { thresholdGood = 1.2, thresholdBad = 0.8 } = {}) {
   return { label: '要注意', cls: 'bad' };
 }
 
-function judgeCurrentRatio(value) {
+// 低いほど良い指標（債務償還年数・借入金月商倍率）用の判定
+function judgeLowerBetter(value, goodThreshold, badThreshold) {
   if (value === null || value === undefined || isNaN(value)) return { label: '—', cls: 'mid' };
-  if (value >= CURRENT_RATIO_GOOD) return { label: '良好', cls: 'good' };
-  if (value >= CURRENT_RATIO_BAD) return { label: '平均的', cls: 'mid' };
+  if (value <= goodThreshold) return { label: '良好', cls: 'good' };
+  if (value <= badThreshold) return { label: '平均的', cls: 'mid' };
   return { label: '要注意', cls: 'bad' };
 }
 
@@ -89,8 +113,8 @@ function diagnoseCompany(records, industry) {
     });
     items.push({
       key: 'currentRatio', name: '流動比率', unit: '%', value: ind.currentRatio,
-      benchValue: CURRENT_RATIO_GOOD, benchLabel: '目安：150%以上=良好 / 100%未満=要注意',
-      judge: judgeCurrentRatio(ind.currentRatio),
+      benchValue: bench.currentRatio, benchLabel: `${industry}平均（参考） ${bench.currentRatio}%`,
+      judge: judge(ind.currentRatio, bench.currentRatio),
       detail: '短期的な支払い能力（資金繰りの余裕度）を示す指標。'
     });
     if (ind.valueAddedRatio !== null) {
@@ -109,6 +133,24 @@ function diagnoseCompany(records, industry) {
         detail: '従業員1人がどれだけの付加価値を生み出しているかを示す生産性の指標。'
       });
     }
+    if (ind.debtServiceYears !== null) {
+      items.push({
+        key: 'debtServiceYears', name: '債務償還年数', unit: '年', value: ind.debtServiceYears,
+        benchValue: DEBT_SERVICE_YEARS_GOOD,
+        benchLabel: `目安：${DEBT_SERVICE_YEARS_GOOD}年以内=良好 / ${DEBT_SERVICE_YEARS_BAD}年超=要注意（銀行融資審査目線）`,
+        judge: judgeLowerBetter(ind.debtServiceYears, DEBT_SERVICE_YEARS_GOOD, DEBT_SERVICE_YEARS_BAD),
+        detail: '有利子負債を何年分の利益(簡易キャッシュフロー)で返済できるかを示す、銀行が融資審査で重視する指標。'
+      });
+    }
+    if (ind.debtMonths !== null) {
+      items.push({
+        key: 'debtMonths', name: '借入金月商倍率', unit: 'ヶ月', value: ind.debtMonths,
+        benchValue: DEBT_MONTHS_GOOD,
+        benchLabel: `目安：${DEBT_MONTHS_GOOD}ヶ月以内=良好 / ${DEBT_MONTHS_BAD}ヶ月超=要注意（銀行融資審査目線）`,
+        judge: judgeLowerBetter(ind.debtMonths, DEBT_MONTHS_GOOD, DEBT_MONTHS_BAD),
+        detail: '有利子負債が月商の何ヶ月分に相当するかを示す、銀行が融資審査で重視する指標。'
+      });
+    }
   }
 
   const seriesOut = series.map(s => ({ recordId: s.record.id, periodLabel: s.record.periodLabel, recordType: s.record.recordType, indicators: s.indicators }));
@@ -122,4 +164,4 @@ function diagnoseCompany(records, industry) {
   };
 }
 
-module.exports = { annualize, computeIndicators, judge, judgeCurrentRatio, diagnoseCompany, ALL_INDUSTRY_AVG, INDUSTRY_BENCH };
+module.exports = { annualize, computeIndicators, judge, judgeLowerBetter, diagnoseCompany, ALL_INDUSTRY_AVG, INDUSTRY_BENCH };

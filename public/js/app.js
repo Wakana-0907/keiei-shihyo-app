@@ -8,7 +8,8 @@ const state = {
   companies: [],
   selectedCompanyId: null,
   records: [],
-  diagnosis: null
+  diagnosis: null,
+  compareData: []
 };
 
 let trendChartObj = null;
@@ -118,6 +119,16 @@ async function init() {
   document.getElementById('loadSampleAnnualBtn').addEventListener('click', () => importCsvText(SAMPLE_ANNUAL_CSV));
   document.getElementById('loadSampleMonthlyBtn').addEventListener('click', () => importCsvText(SAMPLE_MONTHLY_CSV));
 
+  document.getElementById('printReportBtn').addEventListener('click', () => window.print());
+
+  document.getElementById('showCompareBtn').addEventListener('click', async () => {
+    const card = document.getElementById('compareCard');
+    const willShow = card.style.display === 'none';
+    card.style.display = willShow ? 'block' : 'none';
+    if (willShow) await loadCompare();
+  });
+  document.getElementById('compareSortKey').addEventListener('change', () => renderCompareTable());
+
   try {
     state.user = await api('/auth/me');
     await afterLogin();
@@ -195,6 +206,7 @@ async function openCompany(id) {
   const company = state.companies.find(c => c.id === id);
   document.getElementById('companyDetailName').textContent = company.name;
   document.getElementById('companyDetailIndustry').textContent = `業種: ${company.industry}`;
+  document.getElementById('printCompanyName').textContent = `${company.name} 経営指標診断レポート`;
   showCompanyDetail();
   await refreshCompanyData();
 }
@@ -259,12 +271,14 @@ async function onAddRecord() {
     currentAssets: Number(document.getElementById('fCurrentAssets').value || 0),
     currentLiabilities: Number(document.getElementById('fCurrentLiabilities').value || 0),
     employees: Number(document.getElementById('fEmployees').value || 0),
-    valueAdded: document.getElementById('fValueAdded').value ? Number(document.getElementById('fValueAdded').value) : null
+    valueAdded: document.getElementById('fValueAdded').value ? Number(document.getElementById('fValueAdded').value) : null,
+    interestBearingDebt: document.getElementById('fInterestDebt').value ? Number(document.getElementById('fInterestDebt').value) : null,
+    depreciation: document.getElementById('fDepreciation').value ? Number(document.getElementById('fDepreciation').value) : null
   };
   try {
     await api(`/companies/${state.selectedCompanyId}/records`, { method: 'POST', body });
     document.getElementById('addRecordError').textContent = '';
-    ['periodLabel', 'fSales', 'fProfit', 'fAssets', 'fEquity', 'fCurrentAssets', 'fCurrentLiabilities', 'fEmployees', 'fValueAdded']
+    ['periodLabel', 'fSales', 'fProfit', 'fAssets', 'fEquity', 'fCurrentAssets', 'fCurrentLiabilities', 'fEmployees', 'fValueAdded', 'fInterestDebt', 'fDepreciation']
       .forEach(id => { document.getElementById(id).value = ''; });
     await refreshCompanyData();
   } catch (err) {
@@ -304,8 +318,11 @@ function escapeHtml(s) {
 }
 
 function renderDiagnosis() {
-  const { series, diagnosis, summary } = state.diagnosis;
+  const { series, diagnosis, summary, industry } = state.diagnosis;
   document.getElementById('summaryText').textContent = summary || '';
+  const latestLabel = series.length ? series[series.length - 1].periodLabel : '';
+  const today = new Date().toLocaleDateString('ja-JP');
+  document.getElementById('printMeta').textContent = `業種: ${industry}　最新データ: ${latestLabel}　作成日: ${today}`;
   const labels = series.map(s => s.periodLabel + (s.indicators.annualized ? '(年換算)' : ''));
 
   if (trendChartObj) trendChartObj.destroy();
@@ -352,6 +369,77 @@ function renderDiagnosis() {
       </div>
     </div>
   `).join('');
+}
+
+// ---------------------------------------------------------------------
+// 複数社比較・ランキング
+// ---------------------------------------------------------------------
+async function loadCompare() {
+  state.compareData = await api('/companies/compare');
+  renderCompareTable();
+}
+
+const COMPARE_COLUMNS = {
+  equityRatio: { label: '自己資本比率', unit: '%', digits: 1 },
+  profitMargin: { label: '売上高経常利益率', unit: '%', digits: 1 },
+  turnover: { label: '総資本回転率', unit: '回', digits: 2 },
+  roe: { label: 'ROE', unit: '%', digits: 1 },
+  currentRatio: { label: '流動比率', unit: '%', digits: 1 },
+  productivity: { label: '労働生産性', unit: '万円/人', digits: 0 }
+};
+
+function renderCompareTable() {
+  const table = document.getElementById('compareTable');
+  const empty = document.getElementById('compareEmpty');
+  const sortKey = document.getElementById('compareSortKey').value;
+
+  const withData = state.compareData.filter(c => c.hasData);
+  const withoutData = state.compareData.filter(c => !c.hasData);
+
+  if (state.compareData.length === 0) {
+    table.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const sorted = [...withData].sort((a, b) => {
+    if (sortKey === 'goodScore') return (b.goodCount - b.badCount) - (a.goodCount - a.badCount);
+    const av = a[sortKey], bv = b[sortKey];
+    if (av === null || av === undefined) return 1;
+    if (bv === null || bv === undefined) return -1;
+    return bv - av; // 降順(良い値が上に来るよう単純に大きい順。逆指標の並び替えは今後の課題)
+  });
+
+  const cols = Object.entries(COMPARE_COLUMNS);
+
+  table.innerHTML = `
+    <tr>
+      <th>会社名</th><th>業種</th><th>最新期間</th>
+      ${cols.map(([, c]) => `<th>${c.label}</th>`).join('')}
+      <th>総合評価</th>
+    </tr>
+    ${sorted.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.industry)}</td>
+        <td>${escapeHtml(c.latestPeriod)}</td>
+        ${cols.map(([key, col]) => `<td>${fmt(c[key], col.digits)}${c[key] !== null ? col.unit : ''}</td>`).join('')}
+        <td>
+          <span class="badge good">${c.goodCount}</span>
+          <span class="badge mid">${c.midCount}</span>
+          <span class="badge bad">${c.badCount}</span>
+        </td>
+      </tr>
+    `).join('')}
+    ${withoutData.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.industry)}</td>
+        <td colspan="${cols.length + 2}" style="color:var(--sub);">データ未入力</td>
+      </tr>
+    `).join('')}
+  `;
 }
 
 init();

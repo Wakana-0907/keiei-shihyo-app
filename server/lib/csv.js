@@ -1,10 +1,12 @@
 // CSVインポート用パーサー。
-// 列: 年度, 経過月数(任意), 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額
+// 列: 年度, 経過月数(任意), 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額,
+//     有利子負債(任意), 減価償却費(任意)
 // 「経過月数」が 1〜11 の場合は月次試算表（決算前企業向け）として扱い、年換算する。
 // 空欄・省略時は決算実績（年度データ）として扱う。
+// 「有利子負債」を入力すると、銀行融資審査目線の指標（債務償還年数・借入金月商倍率）が診断に追加される。
 
 const REQUIRED_COLS = ["年度", "売上高", "経常利益", "総資産", "純資産", "流動資産", "流動負債", "従業員数", "付加価値額"];
-const OPTIONAL_COLS = ["経過月数"];
+const OPTIONAL_COLS = ["経過月数", "有利子負債", "減価償却費"];
 
 function parseCSV(text) {
   const lines = text.replace(/^﻿/, '').split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
@@ -28,7 +30,7 @@ function parseCSV(text) {
     const row = {};
     headers.forEach((h, i) => { row[h] = cells[i] !== undefined ? cells[i] : ''; });
 
-    const elapsedMonths = OPTIONAL_COLS[0] in row ? num(row["経過月数"]) : null;
+    const elapsedMonths = "経過月数" in row ? num(row["経過月数"]) : null;
     const recordType = (elapsedMonths !== null && elapsedMonths > 0 && elapsedMonths < 12) ? 'monthly' : 'annual';
 
     return {
@@ -42,7 +44,9 @@ function parseCSV(text) {
       currentAssets: num(row["流動資産"]) || 0,
       currentLiabilities: num(row["流動負債"]) || 0,
       employees: num(row["従業員数"]) || 0,
-      valueAdded: num(row["付加価値額"])
+      valueAdded: num(row["付加価値額"]),
+      interestBearingDebt: "有利子負債" in row ? num(row["有利子負債"]) : null,
+      depreciation: "減価償却費" in row ? num(row["減価償却費"]) : null
     };
   });
 }

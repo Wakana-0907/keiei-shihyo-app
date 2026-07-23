@@ -67,6 +67,19 @@
           <select id="newCompanyIndustry" required></select>
         </div>
         <div>
+          <label for="newCompanyOwnerAge">社長年齢(任意・事業承継診断用)</label>
+          <input type="number" id="newCompanyOwnerAge" min="0" max="120">
+        </div>
+        <div>
+          <label for="newCompanySuccessor">後継者の状況(任意)</label>
+          <select id="newCompanySuccessor">
+            <option value="">未設定</option>
+            <option value="決定済み">決定済み</option>
+            <option value="検討中">検討中</option>
+            <option value="未定">未定</option>
+          </select>
+        </div>
+        <div>
           <button type="submit">追加</button>
         </div>
       </form>
@@ -94,6 +107,7 @@
             <option value="roe">ROE</option>
             <option value="currentRatio">流動比率</option>
             <option value="productivity">労働生産性</option>
+            <option value="healthScore">経営体力スコア</option>
             <option value="goodScore">総合評価（良好の数）</option>
           </select>
         </div>
@@ -107,17 +121,54 @@
   <div id="companyDetailView" style="display:none;">
     <button class="secondary no-print" id="backToListBtn" type="button">← 会社一覧に戻る</button>
 
-    <div class="card no-print">
-      <h2 id="companyDetailName"></h2>
-      <p class="lead" id="companyDetailIndustry"></p>
-    </div>
-
     <div id="printHeader" class="print-only">
       <h1 id="printCompanyName"></h1>
       <p id="printMeta"></p>
     </div>
 
-    <div class="card no-print">
+    <div class="detail-layout">
+      <nav class="detail-nav no-print" id="detailNav">
+        <a href="#sectionInfo" data-target="sectionInfo">会社情報</a>
+        <a href="#sectionInput" data-target="sectionInput">データ入力</a>
+        <a href="#sectionRecords" data-target="sectionRecords">入力済みデータ</a>
+        <div id="detailNavDiagGroup" style="display:none;">
+          <a href="#sectionScore" data-target="sectionScore">経営体力スコア</a>
+          <a href="#sectionSummary" data-target="sectionSummary">総評</a>
+          <a href="#sectionSuccession" data-target="sectionSuccession" id="navSuccession" style="display:none;">事業承継</a>
+          <a href="#sectionRank" data-target="sectionRank" id="navRank" style="display:none;">クライアント内順位</a>
+          <a href="#sectionQuestions" data-target="sectionQuestions">次回訪問質問</a>
+          <a href="#sectionCharts" data-target="sectionCharts">指標の推移</a>
+          <a href="#sectionDiag" data-target="sectionDiag">診断結果</a>
+          <a href="#sectionActions" data-target="sectionActions">アクションプラン</a>
+        </div>
+      </nav>
+
+    <div class="detail-content" id="detailContent">
+
+    <div class="card no-print" id="sectionInfo">
+      <h2 id="companyDetailName"></h2>
+      <p class="lead" id="companyDetailIndustry"></p>
+      <form id="companyMetaForm" class="row" style="margin-top:10px;">
+        <div>
+          <label for="editOwnerAge">社長年齢(任意)</label>
+          <input type="number" id="editOwnerAge" min="0" max="120">
+        </div>
+        <div>
+          <label for="editSuccessorStatus">後継者の状況(任意)</label>
+          <select id="editSuccessorStatus">
+            <option value="">未設定</option>
+            <option value="決定済み">決定済み</option>
+            <option value="検討中">検討中</option>
+            <option value="未定">未定</option>
+          </select>
+        </div>
+        <div>
+          <button class="secondary" type="submit">会社情報を更新</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card no-print" id="sectionInput">
       <h2>決算・試算表データの入力</h2>
       <div class="row">
         <div>
@@ -157,7 +208,7 @@
       <p class="error" id="addRecordError"></p>
     </div>
 
-    <div class="card no-print">
+    <div class="card no-print" id="sectionCsv">
       <h2>CSVで一括インポート</h2>
       <p class="hint">列: 年度, 経過月数(任意・決算前のみ), 売上高, 経常利益, 総資産, 純資産, 流動資産, 流動負債, 従業員数, 付加価値額, 有利子負債(任意), 減価償却費(任意)（金額はすべて円単位）</p>
       <div class="row">
@@ -168,7 +219,7 @@
       <p class="error" id="importError"></p>
     </div>
 
-    <div class="card no-print">
+    <div class="card no-print" id="sectionRecords">
       <h2>入力済みデータ</h2>
       <div style="overflow-x:auto;"><table id="recordsTable"></table></div>
       <p class="empty" id="recordsEmpty">まだデータがありません。上のフォームまたはCSVで追加してください。</p>
@@ -178,22 +229,82 @@
       <div class="card no-print">
         <button id="printReportBtn" type="button">レポートを印刷 / PDFとして保存</button>
       </div>
-      <div class="card">
+      <div class="card" id="sectionScore">
+        <h2>経営体力スコア<span class="pill">総合評価</span></h2>
+        <div class="score-row">
+          <div class="score-number" id="healthScoreNumber">—</div>
+          <div>
+            <span class="badge" id="healthScoreLabel"></span>
+            <p class="hint" id="healthScoreCount" style="margin-top:6px;"></p>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="sectionSummary">
         <h2>総評<span class="pill">自動生成</span></h2>
         <p id="summaryText" class="summary-text"></p>
       </div>
-      <div class="card">
+      <div class="card" id="sectionSuccession" style="display:none;">
+        <h2>事業承継レディネス<span class="pill">簡易診断</span></h2>
+        <p id="successionText" class="summary-text"></p>
+      </div>
+      <div class="card" id="sectionRank" style="display:none;">
+        <h2>クライアント内での順位<span class="pill">自社担当先内</span></h2>
+        <p class="hint">担当している他のクライアント企業と比べた、この会社の相対的な位置（パーセンタイル）です。数値が高いほど担当先の中で上位であることを示します。</p>
+        <div id="portfolioRankList"></div>
+      </div>
+      <div class="card" id="sectionQuestions">
+        <h2>次回訪問時に聞くべき質問<span class="pill">自動生成</span></h2>
+        <ul class="question-list" id="questionList"></ul>
+      </div>
+      <div class="card" id="sectionCharts">
         <h2>指標の推移</h2>
         <div class="charts">
           <div class="chart-box"><h3>自己資本比率・売上高経常利益率（%）</h3><canvas id="trendChart" height="200"></canvas></div>
           <div class="chart-box"><h3>最新データ vs 業種平均</h3><canvas id="benchChart" height="200"></canvas></div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" id="sectionDiag">
         <h2>診断結果（最新データ）</h2>
         <div id="diagList"></div>
       </div>
+      <div class="card" id="sectionActions">
+        <h2>アクションプラン・進捗トラッキング</h2>
+        <div id="actionList" class="action-list"></div>
+        <p class="empty" id="actionListEmpty" style="display:none;">まだアクションプランがありません。下のフォームから追加してください。</p>
+        <form id="newActionForm" class="row no-print" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+          <div>
+            <label for="newActionTitle">やること</label>
+            <input type="text" id="newActionTitle" required placeholder="例: 資金繰り表を作成する">
+          </div>
+          <div>
+            <label for="newActionIndicator">関連指標(任意)</label>
+            <select id="newActionIndicator">
+              <option value="">なし</option>
+              <option value="equityRatio">自己資本比率</option>
+              <option value="profitMargin">売上高経常利益率</option>
+              <option value="turnover">総資本回転率</option>
+              <option value="roe">ROE</option>
+              <option value="currentRatio">流動比率</option>
+              <option value="valueAddedRatio">売上高付加価値率</option>
+              <option value="productivity">労働生産性</option>
+              <option value="debtServiceYears">債務償還年数</option>
+              <option value="debtMonths">借入金月商倍率</option>
+            </select>
+          </div>
+          <div>
+            <label for="newActionDueDate">期限(任意)</label>
+            <input type="date" id="newActionDueDate">
+          </div>
+          <div>
+            <button type="submit">追加</button>
+          </div>
+        </form>
+        <p class="error" id="newActionError"></p>
+      </div>
     </div>
+
+    </div><!-- /detail-content -->
+    </div><!-- /detail-layout -->
   </div>
 
   <footer>

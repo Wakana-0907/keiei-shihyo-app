@@ -44,8 +44,21 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS action_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    indicator_key TEXT,
+    title TEXT NOT NULL,
+    description TEXT,
+    due_date TEXT,
+    status TEXT NOT NULL DEFAULT 'open', -- 'open' | 'done'
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_companies_user ON companies(user_id);
   CREATE INDEX IF NOT EXISTS idx_records_company ON financial_records(company_id);
+  CREATE INDEX IF NOT EXISTS idx_actions_company ON action_items(company_id);
 `);
 
 // ---- 簡易マイグレーション: 既存のDBファイルに新しい列を後から追加する ----
@@ -60,5 +73,7 @@ function ensureColumn(table, column, definition) {
 }
 ensureColumn('financial_records', 'interest_bearing_debt', 'REAL');
 ensureColumn('financial_records', 'depreciation', 'REAL');
+ensureColumn('companies', 'owner_age', 'INTEGER');
+ensureColumn('companies', 'successor_status', 'TEXT');
 
 module.exports = db;

@@ -1,16 +1,15 @@
-# Render.com 用ブループラート。
+# Render.com 用ブループリント。
 # 使い方: Renderのダッシュボードで「New +」→「Blueprint」→ このリポジトリを選択。
 #
-# 注意: 無料プラン(free)には永続ディスクを付けられないため、サービスの
-# 再起動・再デプロイのたびに data/app.sqlite の中身（登録したユーザーや
-# クライアント企業のデータ）が消えます。動作確認だけなら free のままで
-# 構いませんが、実際にクライアントのデータを預かって運用する場合は
-# plan を starter 以上に上げ、disks 設定を有効化してください。
+# データ(登録ユーザー・クライアント企業情報)を永続化するため、
+# plan は starter（有料・永続ディスク対応）にし、disks 設定を有効化しています。
+# 無料プランに戻したい場合は plan を free にし、下の disks 設定をコメントアウトしてください
+# （ただしその場合、再起動・再デプロイのたびにデータが消えます）。
 services:
   - type: web
     name: keiei-shihyo-app
     env: node
-    plan: free
+    plan: starter
     buildCommand: npm ci --omit=dev
     startCommand: node server/index.js
     envVars:
@@ -20,9 +19,7 @@ services:
         generateValue: true
       - key: DB_PATH
         value: /var/data/app.sqlite
-    # 永続ディスクを使う場合は plan を starter 以上にした上で、
-    # 以下のコメントを外してください（無料プランではエラーになります）。
-    # disks:
-    #   - name: data
-    #     mountPath: /var/data
-    #     sizeGB: 1
+    disks:
+      - name: data
+        mountPath: /var/data
+        sizeGB: 1
